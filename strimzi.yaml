@@ -1,0 +1,75 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: my-cluster
+spec:
+  kafka:
+    version: 2.8.0
+    replicas: 3
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+    config:
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      log.message.format.version: "2.8"
+      inter.broker.protocol.version: "2.8"
+    storage:
+      type: ephemeral
+  zookeeper:
+    replicas: 3
+    storage:
+      type: ephemeral
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-kafka-pro-con-deployment
+  namespace: project
+  labels:
+    app: api-kafka-pro-con-deployment
+spec:
+  selector:
+    matchLabels:
+      app: api-kafka-pro-con-deployment
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: api-kafka-pro-con-deployment
+      annotations:
+        linkerd.io/inject: enabled
+    spec:
+      containers:
+      - name: producer
+        image: gcr.io/kcdspain-316204/producer:latest
+        ports:
+        - containerPort: 7000
+      - name: consumer
+        image: gcr.io/kcdspain-316204/consumer:latest
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: api-kafka-pro-con-deployment
+  name: api-kafka-pro-con-deployment
+  namespace: project
+spec:
+  ports:
+  - port: 7000
+    protocol: TCP
+    targetPort: 7000
+  selector:
+    app: api-kafka-pro-con-deployment
+  type: ClusterIP
